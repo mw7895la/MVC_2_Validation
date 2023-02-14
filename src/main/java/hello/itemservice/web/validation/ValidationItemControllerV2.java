@@ -291,7 +291,7 @@ public class ValidationItemControllerV2 {
     //@PostMapping("/add")
     public String addItemV5(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes, Model model) {
 
-        //따로 빼놓은 validator 호출해야됨.   // target과  Errors를 파라미터로 넘기면 된다.
+        //따로 빼놓은 validator 호출해야됨.   // target과  errors를 파라미터로 넘기면 된다.
         itemValidator.validate(item,bindingResult);
 
         if(bindingResult.hasErrors()){
@@ -315,7 +315,7 @@ public class ValidationItemControllerV2 {
      *
      * 1.  WebDataBinder 는 스프링의 파라미터 바인딩의 역할을 해주고 검증 기능도 내부에 포함한다, @InitBinder 어노테이션의 init메소드 맨위 생성
      *
-     * 2.  @Validated 를 @ModelAttribute Item item 앞에 넣어줬다. 그러면 바인더가 검증기를 가지고 있는지 확인하고(dataBinder에 addValidators로 검증기 등록) WebDataBinder의 객체 dataBinder에 item이 담기고
+     * 2.  @Validated 를 @ModelAttribute Item item 앞에 넣어줬다. 그러면 바인더가 검증기를 가지고 있는지 확인하고(dataBinder에 addValidators로 검증기 등록) WebDataBinder의 객체 dataBinder에 item객체와 bindingResult가 담기고
      *     item에 대해서 자동으로 검증기가 수행이 된다. 그리고 검증 결과는 bindingResult에 담기게 된다. bindingResult도 결국 model에 담기게 된다.
      *
      *     addItemV5 번과 똑같이 동작한다.

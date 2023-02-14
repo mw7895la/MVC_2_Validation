@@ -4,6 +4,7 @@ import hello.itemservice.domain.item.Item;
 import hello.itemservice.domain.item.ItemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
@@ -11,6 +12,8 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
 import org.springframework.validation.ValidationUtils;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -24,7 +27,27 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ValidationItemControllerV2 {
 
+
     private final ItemRepository itemRepository;
+
+    private final ItemValidator itemValidator;
+
+    //다른 컨트롤러 에선 적용안됨.
+    @InitBinder         //WebDataBinder 는 스프링의 파라미터 바인딩의 역할을 해주고 검증 기능도 내부에 포함한다.
+    public void init(WebDataBinder dataBinder){
+        log.info("dataBinder------={}", dataBinder.getObjectName());
+        dataBinder.addValidators(itemValidator);        //dataBinder에 addValidators로 검증기 등록
+
+    }
+    //이제부터는 여기는 컨트롤러가 호출이 될때마다 항상 init이 불려져서 WebDataBinder가 항상 새로만들어지고 파라미터로 itemValidator를 하나 넣어놔.
+
+
+   /* @Autowired
+    public ValidationItemControllerV2(ItemRepository itemRepository, ItemValidator itemValidator) {
+        this.itemRepository = itemRepository;
+        this.itemValidator = itemValidator;
+    }*/
+
 
     @GetMapping
     public String items(Model model) {
@@ -199,7 +222,7 @@ public class ValidationItemControllerV2 {
      *
      * rejectValue() , reject() 사용하여 검증 코드를 깔끔하게 하기.
      */
-    @PostMapping("/add")
+    //@PostMapping("/add")
     public String addItemV4(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes, Model model) {
 
 
@@ -261,6 +284,64 @@ public class ValidationItemControllerV2 {
         return "redirect:/validation/v2/items/{itemId}";
     }
 
+
+    /**
+     * ItemValidator 클래스 따로 만들어서 검증 로직 이동, ItemValidator 주입.
+     */
+    //@PostMapping("/add")
+    public String addItemV5(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes, Model model) {
+
+        //따로 빼놓은 validator 호출해야됨.   // target과  Errors를 파라미터로 넘기면 된다.
+        itemValidator.validate(item,bindingResult);
+
+        if(bindingResult.hasErrors()){
+            log.info("bindingResult= {} ", bindingResult);
+
+            //bindingResult는 자동으로 Model에 담겨서 View에 같이 넘어간다 그래서 아래 생략 가능
+            //model.addAttribute("bindingResult",bindingResult);
+            //다시 입력폼 뷰로 넘어갈 것임.
+            return "validation/v2/addForm";
+        }
+
+
+        //아래는 성공 로직.
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
+
+    /**
+     *
+     * 1.  WebDataBinder 는 스프링의 파라미터 바인딩의 역할을 해주고 검증 기능도 내부에 포함한다, @InitBinder 어노테이션의 init메소드 맨위 생성
+     *
+     * 2.  @Validated 를 @ModelAttribute Item item 앞에 넣어줬다. 그러면 바인더가 검증기를 가지고 있는지 확인하고(dataBinder에 addValidators로 검증기 등록) WebDataBinder의 객체 dataBinder에 item이 담기고
+     *     item에 대해서 자동으로 검증기가 수행이 된다. 그리고 검증 결과는 bindingResult에 담기게 된다. bindingResult도 결국 model에 담기게 된다.
+     *
+     *     addItemV5 번과 똑같이 동작한다.
+     */
+    @PostMapping("/add")
+    public String addItemV6(@Validated @ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes, Model model) {
+
+        //따로 빼놓은 validator 호출해야됨.   // target과  Errors를 파라미터로 넘기면 된다.
+        //itemValidator.validate(item,bindingResult);
+
+        if(bindingResult.hasErrors()){
+            log.info("bindingResult= {} ", bindingResult);
+
+            //bindingResult는 자동으로 Model에 담겨서 View에 같이 넘어간다 그래서 아래 생략 가능
+            //model.addAttribute("bindingResult",bindingResult);
+            //다시 입력폼 뷰로 넘어갈 것임.
+            return "validation/v2/addForm";
+        }
+
+
+        //아래는 성공 로직.
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
 
 
     @GetMapping("/{itemId}/edit")

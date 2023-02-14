@@ -100,9 +100,12 @@ public class ValidationItemControllerV2 {
         if (!StringUtils.hasText(item.getItemName())) {
 
             // Crtl+P  2번째 생성자를 쓰면 3번째 파라미터로 rejectedValue가 올 수 있다. rejectedValue로 인해 우리가 계속 오류 데이터를 볼 수 있는것.
-            // bindingFailure : 우린 데이터 자체는 Item객체에 잘 들어왔다.
+
             bindingResult.addError(new FieldError("item","itemName",item.getItemName(), false,null,null,"상품 이름은 필수 입니다."));
         }
+
+        // 컨트롤러로 넘어오기 전에 스프링이 FieldError의 rejectedValue에 qqq가 담기게 된다 이후 어쩔수 없이 item.getPrice()는 null이 되고 if문 안에는 getPrice()==null이다. 그리고 BindingResult가 갖고있던 rejecteValue의 값이 3번째 파라미터의 item.getPrice()로 들어감.
+        // 이제 이 값도 같이 뷰로 넘어간다(addForm으로). 그래서 유지가 되는 것.
         if (item.getPrice() == null || item.getPrice() < 1000 || item.getPrice() > 1000000) {
             bindingResult.addError(new FieldError("item", "price", item.getPrice(),false,null,null,"가격은 1,000 ~ 1,000,000만 가능합니다."));
         }

@@ -10,6 +10,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
+import org.springframework.validation.ValidationUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -144,9 +145,14 @@ public class ValidationItemControllerV2 {
     /**
      *  오류 메시지 처리 errors.properties
      */
-    @PostMapping("/add")
+    //@PostMapping("/add")
     public String addItemV3(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes, Model model) {
         //오류된 데이터도 그대로 남아있게 하자.
+
+
+        //bindingResult는 파라미터에서 검증할 객체 바로 다음에 온다 했다. 이말은 bindingResult객체가 뭘 검증해야 할 지 이미 알고 있다는 것.
+        log.info("objecTName={}", bindingResult.getObjectName());       // item을 말함
+        log.info("target={}", bindingResult.getTarget());           //Item클래스의 @Data때문에  toString()으로 보이는 것.
 
         //검증 로직
         if (!StringUtils.hasText(item.getItemName())) {
@@ -189,7 +195,71 @@ public class ValidationItemControllerV2 {
         return "redirect:/validation/v2/items/{itemId}";
     }
 
+    /**
+     *
+     * rejectValue() , reject() 사용하여 검증 코드를 깔끔하게 하기.
+     */
+    @PostMapping("/add")
+    public String addItemV4(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes, Model model) {
 
+
+        FieldError priceError = bindingResult.getFieldError("price");       //price에 아무것도 입력안하거나 범위 벗어나면  1000 ~ 100000이란 메시지 출력// qqq를 입력하면 타입오류 메시지 출력
+        log.info("bindingResult.getFieldError()={}",bindingResult.getFieldError("price"));
+
+        //bindingResult는 파라미터에서 검증할 객체 바로 다음에 온다 했다. 이말은 bindingResult객체가 뭘 검증해야 할 지 이미 알고 있다는 것.
+        log.info("objecTName={}", bindingResult.getObjectName());       // item을 말함
+        log.info("target={}", bindingResult.getTarget());           //Item클래스의 @Data때문에  toString()으로 보이는 것.
+
+
+        //강의자료에 있는 스프링의 validationUtils 잠깐 소개 , 검증 로직 - itemName과 같은 역할이다.
+        //ValidationUtils.rejectIfEmptyOrWhitespace(bindingResult, "itemName", "required");
+
+
+        //검증 로직 - itemName
+        if (!StringUtils.hasText(item.getItemName())) {
+
+            //ObjectName 안적나? bindingResult가 이미 target인 Item ObjectName을 알고있다. 또한, 위에서 처럼 rejectedValue를 스프링이 Error 객체를 생성하면서 사용자가 입력한 값을 자동으로 넣어준다.
+            //errorCode는 new String[]{"required.item.itemName"}  에서  required만 적어준다. //errors.properties에서 required와 ObjectName, Field의 순서로 조합해서 준다.
+            // errorCode파라미터 부분이 new String[]{"required.item.itemName","required"}; 처럼 되어있다고 생각하면 된다. 디테일한것이 우선순위가 높다!
+            bindingResult.rejectValue("itemName","required");
+        }
+
+        if (priceError==null && (item.getPrice() == null || item.getPrice() < 1000 || item.getPrice() > 1000000)) {
+
+            bindingResult.rejectValue("price", "range", new Object[]{1000, 1000000}, null);
+        }
+        if (item.getQuantity() == null || item.getQuantity() >= 9999) {
+
+            bindingResult.rejectValue("quantity", "max",new Object[]{9999},null);
+        }
+        //필드는 넘어온 값들이 있어야 하지만, 오브젝트 에러는 그런게 아니기 때문에 .. 바인딩 실패하거나 이런 일도 없음.
+        //특정 필드가 아닌 복합 룰 검증
+        if (item.getPrice() != null && item.getQuantity() != null) {
+            int resultPrice = item.getPrice() * item.getQuantity();
+            if(resultPrice < 10000){
+                //얘는 특정 필드에 대한 오류가 아님. 오브젝트 자체에서 오류가 난 것. 글로벌 오류.  @ModelAttribute에 담긴 item
+                //bindingResult.addError(new ObjectError("item", new String[]{"totalPriceMin"},new Object[]{10000,resultPrice},null));
+                bindingResult.reject("totalPriceMin", new Object[]{10000, resultPrice}, null);
+            }
+        }
+
+        //검증에 실패하면 위에서 담은 데이터를 가지고 다시 입력 폼으로
+        if(bindingResult.hasErrors()){
+            log.info("bindingResult= {} ", bindingResult);
+
+            //bindingResult는 자동으로 Model에 담겨서 View에 같이 넘어간다 그래서 아래 생략 가능
+            //model.addAttribute("bindingResult",bindingResult);
+            //다시 입력폼 뷰로 넘어갈 것임.
+            return "validation/v2/addForm";
+        }
+
+
+        //아래는 성공 로직.
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
 
 
 
